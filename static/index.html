@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Application Tracker - Kelola & Pantau Lamaran Kerja</title>
+  <meta name="description" content="Aplikasi Job Application Tracker modern dengan backend Go, SQLite, dan status logging transaksional.">
+  
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              400: '#818cf8',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-header {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .animate-fade-in {
+      animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased selection:bg-brand-500 selection:text-white">
+
+  <!-- Header Navigation -->
+  <header class="glass-header sticky top-0 z-30 px-4 sm:px-6 lg:px-8 py-3.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <!-- Logo & Title -->
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-brand-600 via-indigo-500 to-sky-400 flex items-center justify-center shadow-lg shadow-indigo-500/25 ring-1 ring-white/20">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold tracking-tight text-white">Job Application Tracker</h1>
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> SQLite WAL
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Kelola dan pantau seluruh status lamaran kerja Anda secara terstruktur</p>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <div class="flex items-center gap-3">
+        <button id="refreshBtn" onclick="loadApplications()" title="Muat ulang data" class="p-2.5 rounded-xl text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 transition">
+          <svg id="refreshIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+        </button>
+        <button id="openCreateModalBtn" onclick="openCreateModal()" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white shadow-lg shadow-brand-600/30 ring-1 ring-white/20 transition active:scale-[0.98]">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>Tambah Lamaran</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- KPI / Statistics Cards -->
+    <section id="statsSection" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+      <!-- Total -->
+      <div class="glass-card rounded-2xl p-4 transition hover:border-slate-600/60">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Lamaran</span>
+          <span class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          </span>
+        </div>
+        <p id="statTotal" class="mt-2 text-2xl font-extrabold text-white">0</p>
+        <p class="mt-0.5 text-[11px] text-slate-400">Semua riwayat</p>
+      </div>
+
+      <!-- Applied -->
+      <div class="glass-card rounded-2xl p-4 transition hover:border-sky-500/40">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-sky-400 uppercase tracking-wider">Applied</span>
+          <span class="p-1.5 rounded-lg bg-sky-500/10 text-sky-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+          </span>
+        </div>
+        <p id="statApplied" class="mt-2 text-2xl font-extrabold text-sky-300">0</p>
+        <p class="mt-0.5 text-[11px] text-slate-400">Terkirim</p>
+      </div>
+
+      <!-- Interview -->
+      <div class="glass-card rounded-2xl p-4 transition hover:border-amber-500/40">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-amber-400 uppercase tracking-wider">Interview</span>
+          <span class="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </span>
+        </div>
+        <p id="statInterview" class="mt-2 text-2xl font-extrabold text-amber-300">0</p>
+        <p class="mt-0.5 text-[11px] text-slate-400">Tahap wawancara</p>
+      </div>
+
+      <!-- Offering & TTD Kontrak -->
+      <div class="glass-card rounded-2xl p-4 transition hover:border-emerald-500/40">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-emerald-400 uppercase tracking-wider">Offering / TTD</span>
+          <span class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </span>
+        </div>
+        <p id="statOfferingContract" class="mt-2 text-2xl font-extrabold text-emerald-300">0</p>
+        <p class="mt-0.5 text-[11px] text-slate-400"><span id="statOfferingSub">0</span> Offer, <span id="statContractSub">0</span> TTD</p>
+      </div>
+
+      <!-- Rejected -->
+      <div class="glass-card rounded-2xl p-4 col-span-2 sm:col-span-1 transition hover:border-rose-500/40">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-rose-400 uppercase tracking-wider">Rejected</span>
+          <span class="p-1.5 rounded-lg bg-rose-500/10 text-rose-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </span>
+        </div>
+        <p id="statRejected" class="mt-2 text-2xl font-extrabold text-rose-400">0</p>
+        <p class="mt-0.5 text-[11px] text-slate-400">Belum lolos</p>
+      </div>
+    </section>
+
+    <!-- Filters, Search & View Controls -->
+    <section class="glass-card rounded-2xl p-4 space-y-3.5">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <!-- Search Input -->
+        <div class="relative flex-1">
+          <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </span>
+          <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Cari perusahaan, posisi, atau platform..." 
+            oninput="handleSearchChange()"
+            class="w-full pl-10 pr-4 py-2 bg-slate-800/80 border border-slate-700/80 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 rounded-xl text-sm text-slate-100 placeholder-slate-400 outline-none transition"
+          >
+          <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <!-- Filter Dropdown & Sort -->
+        <div class="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+          <!-- Platform Filter -->
+          <select id="platformFilter" onchange="renderApplications()" class="bg-slate-800/80 border border-slate-700/80 text-slate-300 text-xs rounded-xl px-3 py-2 outline-none focus:border-brand-500 transition">
+            <option value="">Semua Platform</option>
+            <option value="LinkedIn">LinkedIn</option>
+            <option value="JobStreet">JobStreet</option>
+            <option value="Glints">Glints</option>
+            <option value="Kalibrr">Kalibrr</option>
+            <option value="Website">Website Perusahaan</option>
+            <option value="Referral">Referral</option>
+            <option value="Lainnya">Lainnya</option>
+          </select>
+
+          <!-- Sort Filter -->
+          <select id="sortFilter" onchange="renderApplications()" class="bg-slate-800/80 border border-slate-700/80 text-slate-300 text-xs rounded-xl px-3 py-2 outline-none focus:border-brand-500 transition">
+            <option value="newest">Lamaran Terbaru</option>
+            <option value="oldest">Lamaran Terlama</option>
+            <option value="updated">Terakhir Diupdate</option>
+            <option value="salaryHigh">Gaji Tertinggi</option>
+            <option value="salaryLow">Gaji Terendah</option>
+          </select>
+
+          <!-- View Toggle -->
+          <div class="flex items-center p-1 bg-slate-800/80 border border-slate-700/80 rounded-xl">
+            <button id="viewGridBtn" onclick="setViewMode('grid')" title="Tampilan Kartu" class="p-1.5 rounded-lg text-brand-400 bg-slate-700/60 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+              </svg>
+            </button>
+            <button id="viewTableBtn" onclick="setViewMode('table')" title="Tampilan Tabel" class="p-1.5 rounded-lg text-slate-400 hover:text-white transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status Quick Filter Pills -->
+      <div class="flex items-center gap-2 overflow-x-auto pb-1 pt-1 text-xs">
+        <span class="text-slate-400 font-medium whitespace-nowrap mr-1">Status:</span>
+        <button onclick="setStatusFilter('')" id="pillAll" class="status-pill px-3 py-1.5 rounded-xl font-medium transition whitespace-nowrap bg-brand-600 text-white">Semua (<span id="countAll">0</span>)</button>
+        <button onclick="setStatusFilter('Applied')" id="pillApplied" class="status-pill px-3 py-1.5 rounded-xl font-medium transition whitespace-nowrap bg-slate-800 text-slate-300 hover:bg-slate-700">Applied (<span id="countApplied">0</span>)</button>
+        <button onclick="setStatusFilter('Interview')" id="pillInterview" class="status-pill px-3 py-1.5 rounded-xl font-medium transition whitespace-nowrap bg-slate-800 text-slate-300 hover:bg-slate-700">Interview (<span id="countInterview">0</span>)</button>
+        <button onclick="setStatusFilter('Offering')" id="pillOffering" class="status-pill px-3 py-1.5 rounded-xl font-medium transition whitespace-nowrap bg-slate-800 text-slate-300 hover:bg-slate-700">Offering (<span id="countOffering">0</span>)</button>
+        <button onclick="setStatusFilter('TTD Kontrak')" id="pillContract" class="status-pill px-3 py-1.5 rounded-xl font-medium transition whitespace-nowrap bg-slate-800 text-slate-300 hover:bg-slate-700">TTD Kontrak (<span id="countContract">0</span>)</button>
+        <button onclick="setStatusFilter('Rejected')" id="pillRejected" class="status-pill px-3 py-1.5 rounded-xl font-medium transition whitespace-nowrap bg-slate-800 text-slate-300 hover:bg-slate-700">Rejected (<span id="countRejected">0</span>)</button>
+      </div>
+    </section>
+
+    <!-- Main List/Grid Section -->
+    <section>
+      <!-- Loading State -->
+      <div id="loadingState" class="hidden py-16 text-center">
+        <div class="inline-block animate-spin rounded-full h-9 w-9 border-4 border-slate-700 border-t-brand-500"></div>
+        <p class="mt-3 text-sm text-slate-400">Memuat data lamaran...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="hidden glass-card rounded-2xl p-12 text-center max-w-lg mx-auto">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mb-4">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+        </div>
+        <h3 class="text-lg font-semibold text-white">Belum Ada Lamaran</h3>
+        <p id="emptyStateDesc" class="mt-1 text-sm text-slate-400">Mulai catat lamaran pekerjaan Anda untuk melacak proses interview dan tawaran kerja.</p>
+        <button onclick="openCreateModal()" class="mt-5 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-brand-600 hover:bg-brand-500 text-white transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Tambah Lamaran Pertama
+        </button>
+      </div>
+
+      <!-- Grid Cards View -->
+      <div id="applicationsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Rendered by JavaScript -->
+      </div>
+
+      <!-- Table View -->
+      <div id="applicationsTableWrapper" class="hidden glass-card rounded-2xl overflow-hidden border border-slate-700/60 shadow-xl">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="bg-slate-800/90 text-xs uppercase font-semibold text-slate-400 tracking-wider border-b border-slate-700/80">
+              <tr>
+                <th class="px-5 py-3.5">Perusahaan & Posisi</th>
+                <th class="px-5 py-3.5">Platform</th>
+                <th class="px-5 py-3.5">Status</th>
+                <th class="px-5 py-3.5">Ekspektasi Gaji</th>
+                <th class="px-5 py-3.5">Tgl Melamar</th>
+                <th class="px-5 py-3.5 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="applicationsTableBody" class="divide-y divide-slate-800/60">
+              <!-- Rendered by JavaScript -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-auto py-6 border-t border-slate-800/80 text-center text-xs text-slate-500">
+    <p>Job Application Tracker &bull; Powered by Go net/http & SQLite &bull; ACID Transactions with Status Logging</p>
+  </footer>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Modal: Tambah Lamaran Baru -->
+  <div id="createModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card relative w-full max-w-xl rounded-2xl p-6 shadow-2xl border border-slate-700/80 animate-fade-in" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-xl bg-brand-500/10 text-brand-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Tambah Lamaran Baru</h3>
+            <p class="text-xs text-slate-400">Masukkan detail lowongan pekerjaan yang Anda lamar</p>
+          </div>
+        </div>
+        <button onclick="closeCreateModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="createForm" onsubmit="handleCreateSubmit(event)" class="mt-4 space-y-4">
+        <!-- Company & Role -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Nama Perusahaan <span class="text-rose-400">*</span></label>
+            <input 
+              type="text" 
+              id="inputCompany" 
+              name="company" 
+              required 
+              placeholder="Contoh: Tokopedia, GoTo, Google" 
+              class="w-full px-3.5 py-2 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"
+            >
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Posisi / Role <span class="text-rose-400">*</span></label>
+            <input 
+              type="text" 
+              id="inputRole" 
+              name="role" 
+              required 
+              placeholder="Contoh: Backend Engineer, Golang Dev" 
+              class="w-full px-3.5 py-2 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"
+            >
+          </div>
+        </div>
+
+        <!-- Platform & Status -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Platform Lowongan</label>
+            <div class="space-y-1.5">
+              <input 
+                type="text" 
+                id="inputPlatform" 
+                name="platform" 
+                placeholder="LinkedIn, Glints, JobStreet, dll." 
+                class="w-full px-3.5 py-2 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"
+              >
+              <!-- Quick pills -->
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button type="button" onclick="setFormPlatform('LinkedIn')" class="text-[11px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">LinkedIn</button>
+                <button type="button" onclick="setFormPlatform('JobStreet')" class="text-[11px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">JobStreet</button>
+                <button type="button" onclick="setFormPlatform('Glints')" class="text-[11px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">Glints</button>
+                <button type="button" onclick="setFormPlatform('Kalibrr')" class="text-[11px] px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">Kalibrr</button>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Status Awal</label>
+            <select 
+              id="inputStatus" 
+              name="status" 
+              class="w-full px-3.5 py-2 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"
+            >
+              <option value="Applied" selected>Applied (Terkirim)</option>
+              <option value="Interview">Interview (Wawancara)</option>
+              <option value="Offering">Offering (Penawaran)</option>
+              <option value="TTD Kontrak">TTD Kontrak (Diterima)</option>
+              <option value="Rejected">Rejected (Ditolak)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Salary & Applied Date -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-semibold text-slate-300">Ekspektasi / Gaji (IDR)</label>
+              <span id="salaryPreview" class="text-[11px] text-brand-400 font-mono font-medium">Rp 0</span>
+            </div>
+            <input 
+              type="number" 
+              id="inputSalary" 
+              name="salary" 
+              placeholder="0 (opsional)" 
+              min="0"
+              step="100000"
+              oninput="updateSalaryPreview(this.value)"
+              class="w-full px-3.5 py-2 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"
+            >
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Tanggal Melamar</label>
+            <input 
+              type="date" 
+              id="inputAppliedAt" 
+              name="applied_at" 
+              class="w-full px-3.5 py-2 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition"
+            >
+          </div>
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Catatan Tambahan</label>
+          <textarea 
+            id="inputNotes" 
+            name="notes" 
+            rows="3" 
+            placeholder="Link lowongan, kontak HR, jadwal tes teknis, atau catatan penting lainnya..."
+            class="w-full px-3.5 py-2 bg-slate-800/90 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500 transition resize-none"
+          ></textarea>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+          <button type="button" onclick="closeCreateModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800 transition">Batal</button>
+          <button type="submit" id="submitCreateBtn" class="inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-600/30 transition">
+            <span>Simpan Lamaran</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Update Status Lamaran -->
+  <div id="statusModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card relative w-full max-w-md rounded-2xl p-6 shadow-2xl border border-slate-700/80 animate-fade-in" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3.5 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-xl bg-amber-500/10 text-amber-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Perbarui Status Lamaran</h3>
+            <p id="statusModalSubtitle" class="text-xs text-slate-400">Perusahaan &bull; Posisi</p>
+          </div>
+        </div>
+        <button onclick="closeStatusModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <input type="hidden" id="statusModalAppId">
+      
+      <div class="mt-4 space-y-4">
+        <div class="p-3 rounded-xl bg-slate-800/80 border border-slate-700/70 flex items-center justify-between text-xs">
+          <span class="text-slate-400 font-medium">Status Saat Ini:</span>
+          <span id="statusModalCurrentBadge" class="font-semibold">-</span>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-2">Pilih Status Baru:</label>
+          <div class="grid grid-cols-1 gap-2" id="statusOptionsGroup">
+            <!-- Status radio options -->
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700/70 hover:bg-slate-800/60 cursor-pointer transition">
+              <input type="radio" name="newStatus" value="Applied" class="w-4 h-4 text-sky-500 focus:ring-0">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-sm font-medium text-slate-200">Applied</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">Terkirim</span>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700/70 hover:bg-slate-800/60 cursor-pointer transition">
+              <input type="radio" name="newStatus" value="Interview" class="w-4 h-4 text-amber-500 focus:ring-0">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-sm font-medium text-slate-200">Interview</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">Wawancara</span>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700/70 hover:bg-slate-800/60 cursor-pointer transition">
+              <input type="radio" name="newStatus" value="Offering" class="w-4 h-4 text-purple-500 focus:ring-0">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-sm font-medium text-slate-200">Offering</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">Tawaran Kerja</span>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700/70 hover:bg-slate-800/60 cursor-pointer transition">
+              <input type="radio" name="newStatus" value="TTD Kontrak" class="w-4 h-4 text-emerald-500 focus:ring-0">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-sm font-medium text-slate-200">TTD Kontrak</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Diterima / Hired!</span>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 p-3 rounded-xl border border-slate-700/70 hover:bg-slate-800/60 cursor-pointer transition">
+              <input type="radio" name="newStatus" value="Rejected" class="w-4 h-4 text-rose-500 focus:ring-0">
+              <div class="flex items-center justify-between w-full">
+                <span class="text-sm font-medium text-slate-200">Rejected</span>
+                <span class="text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">Ditolak</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-slate-400 flex items-start gap-2">
+          <svg class="w-4 h-4 text-brand-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Perubahan status akan dicatat otomatis ke riwayat log audit menggunakan Database Transaction SQLite.</span>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeStatusModal()" class="px-4 py-2 rounded-xl text-sm font-medium text-slate-300 hover:bg-slate-800 transition">Batal</button>
+          <button type="button" id="submitStatusBtn" onclick="submitStatusUpdate()" class="px-5 py-2 rounded-xl text-sm font-semibold bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-600/30 transition">
+            Simpan Perubahan
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Riwayat Log Status (Audit Trail) -->
+  <div id="logsModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card relative w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-slate-700/80 animate-fade-in" onclick="event.stopPropagation()">
+      <div class="flex items-center justify-between pb-3.5 border-b border-slate-800">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Riwayat Perubahan Status</h3>
+            <p id="logsModalSubtitle" class="text-xs text-slate-400">Timeline mutasi status lamaran</p>
+          </div>
+        </div>
+        <button onclick="closeLogsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="mt-4">
+        <div id="logsLoading" class="py-8 text-center text-sm text-slate-400">
+          <div class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-slate-700 border-t-indigo-400 mb-2"></div>
+          <p>Memuat riwayat log...</p>
+        </div>
+
+        <div id="logsEmpty" class="hidden py-8 text-center text-sm text-slate-400">
+          Belum ada riwayat mutasi status.
+        </div>
+
+        <!-- Timeline container -->
+        <div id="logsTimeline" class="hidden space-y-4 max-h-96 overflow-y-auto pr-1">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-slate-800 text-right">
+        <button onclick="closeLogsModal()" class="px-4 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Konfirmasi Hapus -->
+  <div id="deleteModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card relative w-full max-w-sm rounded-2xl p-6 shadow-2xl border border-rose-500/30 animate-fade-in" onclick="event.stopPropagation()">
+      <div class="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-4">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      </div>
+      <h3 class="text-base font-bold text-center text-white">Hapus Lamaran?</h3>
+      <p id="deleteModalText" class="mt-2 text-xs text-center text-slate-300 leading-relaxed">
+        Apakah Anda yakin ingin menghapus data lamaran ini? Tindakan ini akan menghapus seluruh data dan log status secara permanen.
+      </p>
+      <input type="hidden" id="deleteModalAppId">
+
+      <div class="mt-6 flex items-center justify-center gap-3">
+        <button type="button" onclick="closeDeleteModal()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-slate-800 transition">Batal</button>
+        <button type="button" id="confirmDeleteBtn" onclick="confirmDeleteApplication()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition">
+          Ya, Hapus Data
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-md w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- ================= JAVASCRIPT LOGIC ================= -->
+  <script>
+    // State Application
+    let allApplications = [];
+    let currentStatusFilter = '';
+    let currentSearchQuery = '';
+    let currentViewMode = 'grid'; // 'grid' | 'table'
+
+    const STATUS_CONFIG = {
+      'Applied': {
+        label: 'Applied',
+        colorClass: 'bg-sky-500/10 text-sky-400 border-sky-500/30',
+        dotClass: 'bg-sky-400',
+        borderLeft: 'border-l-sky-500'
+      },
+      'Interview': {
+        label: 'Interview',
+        colorClass: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+        dotClass: 'bg-amber-400',
+        borderLeft: 'border-l-amber-500'
+      },
+      'Offering': {
+        label: 'Offering',
+        colorClass: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
+        dotClass: 'bg-purple-400',
+        borderLeft: 'border-l-purple-500'
+      },
+      'TTD Kontrak': {
+        label: 'TTD Kontrak',
+        colorClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+        dotClass: 'bg-emerald-400',
+        borderLeft: 'border-l-emerald-500'
+      },
+      'Rejected': {
+        label: 'Rejected',
+        colorClass: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+        dotClass: 'bg-rose-400',
+        borderLeft: 'border-l-rose-500'
+      }
+    };
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      // Set default date for form to today
+      const today = new Date().toISOString().split('T')[0];
+      const appliedInput = document.getElementById('inputAppliedAt');
+      if (appliedInput) appliedInput.value = today;
+
+      loadApplications();
+    });
+
+    // ================= API CALLS =================
+
+    // 1. GET /api/applications
+    async function loadApplications() {
+      const refreshIcon = document.getElementById('refreshIcon');
+      refreshIcon.classList.add('animate-spin');
+      showLoading(true);
+
+      try {
+        const response = await fetch('/api/applications');
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        allApplications = Array.isArray(data) ? data : [];
+        updateStatistics();
+        renderApplications();
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+        showToast('Gagal mengambil data: ' + error.message, 'error');
+      } finally {
+        showLoading(false);
+        refreshIcon.classList.remove('animate-spin');
+      }
+    }
+
+    // 2. POST /api/applications
+    async function handleCreateSubmit(event) {
+      event.preventDefault();
+      const submitBtn = document.getElementById('submitCreateBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="inline-block animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2"></span> Menyimpan...';
+
+      const form = document.getElementById('createForm');
+      const formData = new FormData(form);
+
+      const payload = {
+        company: formData.get('company'),
+        role: formData.get('role'),
+        platform: formData.get('platform') || '',
+        status: formData.get('status') || 'Applied',
+        salary: parseInt(formData.get('salary') || '0', 10),
+        applied_at: formData.get('applied_at') || '',
+        notes: formData.get('notes') || ''
+      };
+
+      try {
+        const response = await fetch('/api/applications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Gagal menyimpan lamaran');
+        }
+
+        showToast(`Lamaran ke ${payload.company} berhasil ditambahkan!`, 'success');
+        closeCreateModal();
+        form.reset();
+        document.getElementById('salaryPreview').textContent = 'Rp 0';
+        // Reset date to today
+        document.getElementById('inputAppliedAt').value = new Date().toISOString().split('T')[0];
+        
+        await loadApplications();
+      } catch (error) {
+        showToast(error.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span>Simpan Lamaran</span>';
+      }
+    }
+
+    // 3. PUT /api/applications/{id}/status
+    async function submitStatusUpdate() {
+      const appId = document.getElementById('statusModalAppId').value;
+      const selectedRadio = document.querySelector('input[name="newStatus"]:checked');
+
+      if (!selectedRadio) {
+        showToast('Pilih status terlebih dahulu', 'warning');
+        return;
+      }
+
+      const newStatus = selectedRadio.value;
+      const submitBtn = document.getElementById('submitStatusBtn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="inline-block animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1.5"></span> Menyimpan...';
+
+      try {
+        const response = await fetch(`/api/applications/${appId}/status`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus })
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Gagal memperbarui status');
+        }
+
+        showToast(`Status berhasil diubah menjadi "${newStatus}"!`, 'success');
+        closeStatusModal();
+        await loadApplications();
+      } catch (error) {
+        showToast(error.message, 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Simpan Perubahan';
+      }
+    }
+
+    // 4. DELETE /api/applications/{id}
+    async function confirmDeleteApplication() {
+      const appId = document.getElementById('deleteModalAppId').value;
+      const confirmBtn = document.getElementById('confirmDeleteBtn');
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<span class="inline-block animate-spin w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full mr-1.5"></span> Menghapus...';
+
+      try {
+        const response = await fetch(`/api/applications/${appId}`, {
+          method: 'DELETE'
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.error || 'Gagal menghapus lamaran');
+        }
+
+        showToast('Lamaran dan log riwayat berhasil dihapus', 'success');
+        closeDeleteModal();
+        await loadApplications();
+      } catch (error) {
+        showToast(error.message, 'error');
+      } finally {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Ya, Hapus Data';
+      }
+    }
+
+    // 5. GET /api/applications/{id}/logs
+    async function openLogsModal(appId, company, role) {
+      document.getElementById('logsModalSubtitle').textContent = `${company} — ${role}`;
+      document.getElementById('logsModal').classList.remove('hidden');
+
+      const loading = document.getElementById('logsLoading');
+      const empty = document.getElementById('logsEmpty');
+      const timeline = document.getElementById('logsTimeline');
+
+      loading.classList.remove('hidden');
+      empty.classList.add('hidden');
+      timeline.classList.add('hidden');
+      timeline.innerHTML = '';
+
+      try {
+        const res = await fetch(`/api/applications/${appId}/logs`);
+        if (!res.ok) throw new Error('Gagal mengambil riwayat status');
+        const logs = await res.json();
+
+        loading.classList.add('hidden');
+
+        if (!logs || logs.length === 0) {
+          empty.classList.remove('hidden');
+          return;
+        }
+
+        timeline.classList.remove('hidden');
+        timeline.innerHTML = logs.map((log, index) => {
+          const isLatest = index === 0;
+          const statusConf = STATUS_CONFIG[log.new_status] || { colorClass: 'bg-slate-700 text-slate-300' };
+          const formattedDate = formatDateTime(log.changed_at);
+
+          return `
+            <div class="relative pl-6 pb-4 border-l-2 ${isLatest ? 'border-brand-500' : 'border-slate-700'} last:border-transparent last:pb-0">
+              <span class="absolute -left-1.5 top-0.5 w-3 h-3 rounded-full ${isLatest ? 'bg-brand-500 ring-4 ring-brand-500/20' : 'bg-slate-700'}"></span>
+              <div class="flex items-center justify-between text-xs mb-1">
+                <span class="text-slate-400 font-mono">${formattedDate}</span>
+                ${isLatest ? '<span class="px-2 py-0.5 rounded text-[10px] bg-brand-500/10 text-brand-400 font-semibold border border-brand-500/20">Status Terakhir</span>' : ''}
+              </div>
+              <div class="p-3 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-between">
+                <div class="text-xs">
+                  <span class="text-slate-400">Dari: </span>
+                  <span class="font-medium text-slate-300">${escapeHtml(log.old_status)}</span>
+                  <span class="mx-2 text-slate-500">&rarr;</span>
+                  <span class="text-slate-400">Menjadi: </span>
+                  <span class="px-2 py-0.5 rounded-full text-xs font-semibold border ${statusConf.colorClass}">${escapeHtml(log.new_status)}</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (err) {
+        loading.classList.add('hidden');
+        showToast(err.message, 'error');
+      }
+    }
+
+    // ================= RENDERING & UI =================
+
+    function renderApplications() {
+      const grid = document.getElementById('applicationsGrid');
+      const tableBody = document.getElementById('applicationsTableBody');
+      const emptyState = document.getElementById('emptyState');
+      const emptyDesc = document.getElementById('emptyStateDesc');
+      const tableWrapper = document.getElementById('applicationsTableWrapper');
+
+      // Filter
+      let filtered = allApplications.filter(app => {
+        // Status filter
+        if (currentStatusFilter && app.status !== currentStatusFilter) return false;
+
+        // Platform filter
+        const platformFilter = document.getElementById('platformFilter').value;
+        if (platformFilter) {
+          if (platformFilter === 'Lainnya') {
+            const common = ['LinkedIn', 'JobStreet', 'Glints', 'Kalibrr', 'Website', 'Referral'];
+            if (common.some(c => (app.platform || '').toLowerCase().includes(c.toLowerCase()))) return false;
+          } else {
+            if (!(app.platform || '').toLowerCase().includes(platformFilter.toLowerCase())) return false;
+          }
+        }
+
+        // Search query
+        if (currentSearchQuery) {
+          const q = currentSearchQuery.toLowerCase();
+          const matchCompany = (app.company || '').toLowerCase().includes(q);
+          const matchRole = (app.role || '').toLowerCase().includes(q);
+          const matchPlatform = (app.platform || '').toLowerCase().includes(q);
+          const matchNotes = (app.notes || '').toLowerCase().includes(q);
+          if (!matchCompany && !matchRole && !matchPlatform && !matchNotes) return false;
+        }
+
+        return true;
+      });
+
+      // Sort
+      const sortBy = document.getElementById('sortFilter').value;
+      filtered.sort((a, b) => {
+        if (sortBy === 'newest') return new Date(b.applied_at) - new Date(a.applied_at);
+        if (sortBy === 'oldest') return new Date(a.applied_at) - new Date(b.applied_at);
+        if (sortBy === 'updated') return new Date(b.updated_at) - new Date(a.updated_at);
+        if (sortBy === 'salaryHigh') return (b.salary || 0) - (a.salary || 0);
+        if (sortBy === 'salaryLow') return (a.salary || 0) - (b.salary || 0);
+        return 0;
+      });
+
+      // Handle Empty
+      if (filtered.length === 0) {
+        grid.innerHTML = '';
+        tableBody.innerHTML = '';
+        grid.classList.add('hidden');
+        tableWrapper.classList.add('hidden');
+        emptyState.classList.remove('hidden');
+
+        if (allApplications.length === 0) {
+          emptyDesc.textContent = 'Mulai catat lamaran pekerjaan Anda untuk melacak proses interview dan tawaran kerja.';
+        } else {
+          emptyDesc.textContent = 'Tidak ada lamaran yang cocok dengan kriteria filter atau pencarian Anda.';
+        }
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      if (currentViewMode === 'grid') {
+        grid.classList.remove('hidden');
+        tableWrapper.classList.add('hidden');
+        grid.innerHTML = filtered.map(app => createCardHtml(app)).join('');
+      } else {
+        grid.classList.add('hidden');
+        tableWrapper.classList.remove('hidden');
+        tableBody.innerHTML = filtered.map(app => createTableRowHtml(app)).join('');
+      }
+    }
+
+    function createCardHtml(app) {
+      const statusConf = STATUS_CONFIG[app.status] || {
+        label: app.status,
+        colorClass: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+        dotClass: 'bg-slate-400',
+        borderLeft: 'border-l-slate-500'
+      };
+
+      const salaryText = app.salary > 0 ? formatRupiah(app.salary) : 'Belum ditentukan';
+      const appliedDateText = formatDate(app.applied_at);
+      const companyInitial = (app.company || 'J').substring(0, 2).toUpperCase();
+
+      return `
+        <div class="glass-card rounded-2xl p-5 border-l-4 ${statusConf.borderLeft} flex flex-col justify-between transition hover:border-slate-500/60 hover:-translate-y-0.5 group">
+          <div>
+            <!-- Top Card: Company avatar, Name, & Status Badge -->
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/80 flex items-center justify-center font-bold text-xs text-indigo-300 shadow-sm shrink-0">
+                  ${companyInitial}
+                </div>
+                <div>
+                  <h4 class="font-bold text-base text-white group-hover:text-brand-400 transition leading-snug">${escapeHtml(app.company)}</h4>
+                  <p class="text-xs text-slate-300 font-medium">${escapeHtml(app.role)}</p>
+                </div>
+              </div>
+
+              <!-- Status Badge -->
+              <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${statusConf.colorClass} shrink-0">
+                <span class="w-1.5 h-1.5 rounded-full ${statusConf.dotClass} mr-1.5"></span>
+                ${escapeHtml(app.status)}
+              </span>
+            </div>
+
+            <!-- Details: Platform & Salary -->
+            <div class="mt-4 pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <span class="text-slate-400 block text-[11px]">Platform</span>
+                <span class="text-slate-200 font-medium flex items-center gap-1.5 mt-0.5">
+                  <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                  ${escapeHtml(app.platform || 'Direct / Lainnya')}
+                </span>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[11px]">Gaji</span>
+                <span class="text-emerald-400 font-medium font-mono mt-0.5 block">${salaryText}</span>
+              </div>
+            </div>
+
+            <!-- Applied Date & Notes -->
+            <div class="mt-3 text-xs">
+              <div class="flex items-center gap-1.5 text-slate-400 text-[11px]">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span>Melamar: ${appliedDateText}</span>
+              </div>
+              ${app.notes ? `
+                <div class="mt-2 p-2.5 rounded-xl bg-slate-800/60 border border-slate-700/50 text-[11px] text-slate-300 leading-relaxed break-words">
+                  ${escapeHtml(app.notes)}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-1.5">
+              <button 
+                onclick="openStatusModal(${app.id}, '${escapeQuote(app.company)}', '${escapeQuote(app.role)}', '${escapeQuote(app.status)}')" 
+                title="Perbarui Status" 
+                class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-brand-600/10 hover:bg-brand-600/20 text-brand-300 border border-brand-500/20 transition flex items-center gap-1"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                Update
+              </button>
+              <button 
+                onclick="openLogsModal(${app.id}, '${escapeQuote(app.company)}', '${escapeQuote(app.role)}')" 
+                title="Riwayat Status" 
+                class="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 transition"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </button>
+            </div>
+
+            <button 
+              onclick="openDeleteModal(${app.id}, '${escapeQuote(app.company)}', '${escapeQuote(app.role)}')" 
+              title="Hapus Lamaran" 
+              class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 bg-slate-800/80 hover:bg-rose-500/10 border border-slate-700/60 hover:border-rose-500/30 transition"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function createTableRowHtml(app) {
+      const statusConf = STATUS_CONFIG[app.status] || {
+        colorClass: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+        dotClass: 'bg-slate-400'
+      };
+
+      const salaryText = app.salary > 0 ? formatRupiah(app.salary) : '-';
+      const appliedDateText = formatDate(app.applied_at);
+
+      return `
+        <tr class="hover:bg-slate-800/50 transition">
+          <td class="px-5 py-3.5">
+            <div class="font-bold text-white text-sm">${escapeHtml(app.company)}</div>
+            <div class="text-xs text-slate-400">${escapeHtml(app.role)}</div>
+          </td>
+          <td class="px-5 py-3.5 text-xs text-slate-300">
+            ${escapeHtml(app.platform || '-')}
+          </td>
+          <td class="px-5 py-3.5">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${statusConf.colorClass}">
+              <span class="w-1.5 h-1.5 rounded-full ${statusConf.dotClass} mr-1.5"></span>
+              ${escapeHtml(app.status)}
+            </span>
+          </td>
+          <td class="px-5 py-3.5 text-xs font-mono text-emerald-400">
+            ${salaryText}
+          </td>
+          <td class="px-5 py-3.5 text-xs text-slate-400">
+            ${appliedDateText}
+          </td>
+          <td class="px-5 py-3.5 text-right">
+            <div class="inline-flex items-center gap-1.5">
+              <button 
+                onclick="openStatusModal(${app.id}, '${escapeQuote(app.company)}', '${escapeQuote(app.role)}', '${escapeQuote(app.status)}')" 
+                title="Perbarui Status" 
+                class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-brand-600/10 hover:bg-brand-600/20 text-brand-300 border border-brand-500/20 transition"
+              >
+                Update
+              </button>
+              <button 
+                onclick="openLogsModal(${app.id}, '${escapeQuote(app.company)}', '${escapeQuote(app.role)}')" 
+                title="Riwayat Status" 
+                class="p-1 rounded-lg text-slate-400 hover:text-slate-200 bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              </button>
+              <button 
+                onclick="openDeleteModal(${app.id}, '${escapeQuote(app.company)}', '${escapeQuote(app.role)}')" 
+                title="Hapus Lamaran" 
+                class="p-1 rounded-lg text-slate-400 hover:text-rose-400 bg-slate-800 hover:bg-rose-500/10 border border-slate-700 hover:border-rose-500/30 transition"
+              >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+
+    function updateStatistics() {
+      const counts = {
+        total: allApplications.length,
+        Applied: 0,
+        Interview: 0,
+        Offering: 0,
+        'TTD Kontrak': 0,
+        Rejected: 0
+      };
+
+      allApplications.forEach(app => {
+        if (counts[app.status] !== undefined) {
+          counts[app.status]++;
+        }
+      });
+
+      // Update KPI cards
+      document.getElementById('statTotal').textContent = counts.total;
+      document.getElementById('statApplied').textContent = counts['Applied'];
+      document.getElementById('statInterview').textContent = counts['Interview'];
+      document.getElementById('statOfferingContract').textContent = counts['Offering'] + counts['TTD Kontrak'];
+      document.getElementById('statOfferingSub').textContent = counts['Offering'];
+      document.getElementById('statContractSub').textContent = counts['TTD Kontrak'];
+      document.getElementById('statRejected').textContent = counts['Rejected'];
+
+      // Update pill badge counts
+      document.getElementById('countAll').textContent = counts.total;
+      document.getElementById('countApplied').textContent = counts['Applied'];
+      document.getElementById('countInterview').textContent = counts['Interview'];
+      document.getElementById('countOffering').textContent = counts['Offering'];
+      document.getElementById('countContract').textContent = counts['TTD Kontrak'];
+      document.getElementById('countRejected').textContent = counts['Rejected'];
+    }
+
+    // ================= MODAL CONTROLLERS =================
+
+    function openCreateModal() {
+      document.getElementById('createModal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('inputCompany').focus(), 50);
+    }
+    function closeCreateModal() {
+      document.getElementById('createModal').classList.add('hidden');
+    }
+
+    function openStatusModal(id, company, role, currentStatus) {
+      document.getElementById('statusModalAppId').value = id;
+      document.getElementById('statusModalSubtitle').textContent = `${company} — ${role}`;
+      
+      const badge = document.getElementById('statusModalCurrentBadge');
+      const statusConf = STATUS_CONFIG[currentStatus] || { colorClass: 'bg-slate-700 text-slate-300' };
+      badge.className = `px-2 py-0.5 rounded-full text-xs font-semibold border ${statusConf.colorClass}`;
+      badge.textContent = currentStatus;
+
+      // Select matching radio
+      const radio = document.querySelector(`input[name="newStatus"][value="${currentStatus}"]`);
+      if (radio) radio.checked = true;
+
+      document.getElementById('statusModal').classList.remove('hidden');
+    }
+    function closeStatusModal() {
+      document.getElementById('statusModal').classList.add('hidden');
+    }
+
+    function closeLogsModal() {
+      document.getElementById('logsModal').classList.add('hidden');
+    }
+
+    function openDeleteModal(id, company, role) {
+      document.getElementById('deleteModalAppId').value = id;
+      document.getElementById('deleteModalText').innerHTML = `Apakah Anda yakin ingin menghapus lamaran di <strong class="text-white">${escapeHtml(company)}</strong> (${escapeHtml(role)})? Data dan seluruh log status akan dihapus permanen.`;
+      document.getElementById('deleteModal').classList.remove('hidden');
+    }
+    function closeDeleteModal() {
+      document.getElementById('deleteModal').classList.add('hidden');
+    }
+
+    // ================= HELPER FUNCTIONS =================
+
+    function setFormPlatform(name) {
+      document.getElementById('inputPlatform').value = name;
+    }
+
+    function updateSalaryPreview(val) {
+      const num = parseInt(val, 10);
+      document.getElementById('salaryPreview').textContent = isNaN(num) || num <= 0 ? 'Rp 0' : formatRupiah(num);
+    }
+
+    function handleSearchChange() {
+      const input = document.getElementById('searchInput');
+      currentSearchQuery = input.value.trim();
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (currentSearchQuery) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+      renderApplications();
+    }
+
+    function clearSearch() {
+      document.getElementById('searchInput').value = '';
+      currentSearchQuery = '';
+      document.getElementById('clearSearchBtn').classList.add('hidden');
+      renderApplications();
+    }
+
+    function setStatusFilter(status) {
+      currentStatusFilter = status;
+      // Update pills appearance
+      const pills = document.querySelectorAll('.status-pill');
+      pills.forEach(p => {
+        p.classList.remove('bg-brand-600', 'text-white');
+        p.classList.add('bg-slate-800', 'text-slate-300');
+      });
+
+      let activePillId = 'pillAll';
+      if (status === 'Applied') activePillId = 'pillApplied';
+      else if (status === 'Interview') activePillId = 'pillInterview';
+      else if (status === 'Offering') activePillId = 'pillOffering';
+      else if (status === 'TTD Kontrak') activePillId = 'pillContract';
+      else if (status === 'Rejected') activePillId = 'pillRejected';
+
+      const activePill = document.getElementById(activePillId);
+      if (activePill) {
+        activePill.classList.remove('bg-slate-800', 'text-slate-300');
+        activePill.classList.add('bg-brand-600', 'text-white');
+      }
+
+      renderApplications();
+    }
+
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      const gridBtn = document.getElementById('viewGridBtn');
+      const tableBtn = document.getElementById('viewTableBtn');
+
+      if (mode === 'grid') {
+        gridBtn.className = 'p-1.5 rounded-lg text-brand-400 bg-slate-700/60 transition';
+        tableBtn.className = 'p-1.5 rounded-lg text-slate-400 hover:text-white transition';
+      } else {
+        tableBtn.className = 'p-1.5 rounded-lg text-brand-400 bg-slate-700/60 transition';
+        gridBtn.className = 'p-1.5 rounded-lg text-slate-400 hover:text-white transition';
+      }
+      renderApplications();
+    }
+
+    function showLoading(show) {
+      const loader = document.getElementById('loadingState');
+      if (show) loader.classList.remove('hidden');
+      else loader.classList.add('hidden');
+    }
+
+    function formatRupiah(amount) {
+      return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        maximumFractionDigits: 0
+      }).format(amount);
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr || dateStr.startsWith('0001')) return '-';
+      try {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch {
+        return dateStr;
+      }
+    }
+
+    function formatDateTime(dateStr) {
+      if (!dateStr || dateStr.startsWith('0001')) return '-';
+      try {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('id-ID', { 
+          day: 'numeric', 
+          month: 'short', 
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch {
+        return dateStr;
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function escapeQuote(str) {
+      if (!str) return '';
+      return String(str).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      
+      let borderCol = 'border-brand-500/40 text-brand-300';
+      let icon = '<svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+
+      if (type === 'success') {
+        borderCol = 'border-emerald-500/40 text-emerald-300';
+        icon = '<svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+      } else if (type === 'error') {
+        borderCol = 'border-rose-500/40 text-rose-300';
+        icon = '<svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+      } else if (type === 'warning') {
+        borderCol = 'border-amber-500/40 text-amber-300';
+        icon = '<svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+      }
+
+      toast.className = `pointer-events-auto flex items-center gap-3 p-4 rounded-2xl bg-slate-900/95 border ${borderCol} shadow-2xl backdrop-blur-md animate-fade-in transition duration-300`;
+      toast.innerHTML = `
+        <div class="shrink-0">${icon}</div>
+        <div class="text-xs font-medium text-slate-100 flex-1 leading-snug">${escapeHtml(message)}</div>
+      `;
+
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+  </script>
+</body>
+</html>
